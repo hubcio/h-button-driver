@@ -1,0 +1,12 @@
+{
+    "editor.formatOnSave": true,
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml",
+        "./Cargo.toml"
+    ],
+    "cSpell.words": [
+        "alsa",
+        "bebede",
+        "selem"
+    ]
+}
