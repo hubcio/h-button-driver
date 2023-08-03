@@ -36,12 +36,14 @@ impl LinuxSoundController {
             .mixer
             .find_selem(&SelemId::new("Capture", 0))
             .unwrap()
-            .get_capture_volume(SelemChannelId::mono())
+            .get_capture_switch(SelemChannelId::mono())
             .unwrap();
-        if sound == 0 {
-            MicrophoneStatus::Muted
-        } else {
+        if sound != 0 {
+            println!("Microphone is unmuted, sound = {sound}");
             MicrophoneStatus::Unmuted
+        } else {
+            println!("Microphone is muted, sound = {sound}");
+            MicrophoneStatus::Muted
         }
     }
 
@@ -69,11 +71,15 @@ impl LinuxSoundController {
     }
 
     pub fn get_current_volume(&mut self) -> i64 {
-        self.mixer
+        let current_volume = self
+            .mixer
             .find_selem(&SelemId::new("Master", 0))
             .unwrap()
             .get_playback_volume(SelemChannelId::mono())
-            .unwrap()
+            .unwrap();
+
+        println!("current volume {current_volume}");
+        current_volume
     }
 
     pub fn mute_mic(&mut self) {

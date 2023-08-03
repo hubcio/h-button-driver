@@ -3,21 +3,41 @@ name = "h-button-driver"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 btleplug = { version = "0.11.0", features = ["serde"] }
 rand = "0.8.5"
+log = "0.4.19"
 pretty_env_logger = "0.5.0"
-tokio = { version = "1.25.0", features = ["macros", "rt", "rt-multi-thread"] }
-serde_json = "1.0.92"
-futures = "0.3.26"
-uuid = "1.3.0"
-anyhow = "1.0.69"
-serde = { version = "1.0.152", features = ["derive"] }
+tokio = { version = "1.29.1", features = ["macros", "rt", "rt-multi-thread"] }
+serde_json = "1.0.104"
+futures = "0.3.28"
+uuid = "1.4.1"
+anyhow = "1.0.72"
+serde = { version = "1.0.177", features = ["derive"] }
+tauri = { version = "1.4.0", features = ["api-all", "icon-png", "system-tray"] }
+once_cell = "1.18.0"
+async-trait = "0.1.72"
+
+[build-dependencies]
+tauri-build = { version = "1.4.0", features = [] }
 
 [target.'cfg(target_os="macos")'.dependencies]
 coreaudio-rs = "0.11.2"
 
 [target.'cfg(target_os="linux")'.dependencies]
 alsa = "0.7.0"
+
+[profile.release]
+incremental = false
+codegen-units = 1
+panic = "abort"
+opt-level = "s"
+lto = true
+
+[features]
+# by default Tauri runs in production mode
+# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
+# this feature is used used for production builds where `devPath` points to the filesystem
+# DO NOT remove this
+# default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

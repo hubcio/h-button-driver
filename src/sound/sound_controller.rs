@@ -62,12 +62,14 @@ impl SoundController {
         self.sound_controller.get_current_volume()
     }
 
-    pub fn mute_mic(&mut self) {
+    // todo
+    pub fn _mute_mic(&mut self) {
         println!("Muting mic");
         self.sound_controller.mute_mic();
     }
 
-    pub fn unmute_mic(&mut self) {
+    // todo
+    pub fn _unmute_mic(&mut self) {
         println!("Unmuting mic");
         self.sound_controller.unmute_mic();
     }

@@ -1,0 +1,15 @@
+{
+    "build": {
+        "distDir": "target",
+        "withGlobalTauri": true
+    },
+    "tauri": {
+        "systemTray": {
+            "iconPath": "icons/muted.png",
+            "iconAsTemplate": true
+        },
+        "allowlist": {
+            "all": true
+        }
+    }
+}
