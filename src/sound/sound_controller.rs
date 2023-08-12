@@ -46,6 +46,7 @@ impl SoundController {
     }
 
     pub fn toggle_microphone_mute(&mut self) {
+        println!("Toggling microphone mute");
         self.sound_controller.toggle_microphone_mute();
     }
 

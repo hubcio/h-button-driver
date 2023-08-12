@@ -6,17 +6,17 @@ use alsa::{
 use super::sound_controller::MicrophoneStatus;
 
 pub struct LinuxSoundController {
-    mixer: Mixer,
     current_microphone_status: MicrophoneStatus,
 }
 
 impl LinuxSoundController {
     pub fn new() -> Self {
         let mixer = Mixer::new("default", false).unwrap();
+        let mut channels = SelemChannelId::all().iter();
         let sound = mixer
             .find_selem(&SelemId::new("Capture", 0))
             .unwrap()
-            .get_capture_switch(SelemChannelId::mono())
+            .get_capture_switch(*channels.next().unwrap())
             .unwrap();
 
         let current_microphone_status = if sound == 0 {
@@ -26,25 +26,28 @@ impl LinuxSoundController {
         };
 
         LinuxSoundController {
-            mixer,
             current_microphone_status,
         }
     }
 
     pub fn get_microphone_status(&self) -> MicrophoneStatus {
-        let sound = self
-            .mixer
-            .find_selem(&SelemId::new("Capture", 0))
-            .unwrap()
-            .get_capture_switch(SelemChannelId::mono())
-            .unwrap();
-        if sound != 0 {
-            println!("Microphone is unmuted, sound = {sound}");
-            MicrophoneStatus::Unmuted
-        } else {
-            println!("Microphone is muted, sound = {sound}");
-            MicrophoneStatus::Muted
-        }
+        let mixer = Mixer::new("default", false).unwrap();
+        let mut channels = SelemChannelId::all().iter();
+
+        let selem = mixer.find_selem(&SelemId::new("Capture", 0)).unwrap();
+        let capture_switch_state = selem.get_capture_switch(*channels.next().unwrap()).unwrap();
+        let volume = selem.get_capture_volume(*channels.next().unwrap()).unwrap();
+
+        println!("switch: {}, volume: {}", capture_switch_state, volume);
+
+        let state = match (volume, capture_switch_state) {
+            (0, _) => MicrophoneStatus::Muted,
+            (_, 0) => MicrophoneStatus::Muted,
+            (_, _) => MicrophoneStatus::Unmuted,
+        };
+
+        println!("Microphone status: {:?}", state);
+        state
     }
 
     pub fn toggle_microphone_mute(&mut self) {
@@ -61,9 +64,10 @@ impl LinuxSoundController {
     }
 
     pub fn set_volume(&mut self, volume: i64) {
-        println!("Setting volume to {}", volume);
+        let mixer = Mixer::new("default", false).unwrap();
 
-        self.mixer
+        println!("Setting volume to {}", volume);
+        mixer
             .find_selem(&SelemId::new("Master", 0))
             .unwrap()
             .set_playback_volume_all(volume)
@@ -71,32 +75,36 @@ impl LinuxSoundController {
     }
 
     pub fn get_current_volume(&mut self) -> i64 {
-        let current_volume = self
-            .mixer
+        let mixer = Mixer::new("default", false).unwrap();
+
+        let current_volume = mixer
             .find_selem(&SelemId::new("Master", 0))
             .unwrap()
             .get_playback_volume(SelemChannelId::mono())
             .unwrap();
 
-        println!("current volume {current_volume}");
+        println!("Current volume: {current_volume}");
         current_volume
     }
 
     pub fn mute_mic(&mut self) {
+        let mixer = Mixer::new("default", false).unwrap();
+
         println!("Muting mic");
-        self.mixer
+        mixer
             .find_selem(&alsa::mixer::SelemId::new("Capture", 0))
             .unwrap()
-            .set_capture_volume(SelemChannelId::mono(), 0)
+            .set_capture_switch_all(0)
             .unwrap();
     }
 
     pub fn unmute_mic(&mut self) {
+        let mixer = Mixer::new("default", false).unwrap();
         println!("Unmuting mic");
-        self.mixer
+        mixer
             .find_selem(&alsa::mixer::SelemId::new("Capture", 0))
             .unwrap()
-            .set_capture_volume(SelemChannelId::mono(), 65536)
+            .set_capture_switch_all(65536)
             .unwrap();
     }
 }

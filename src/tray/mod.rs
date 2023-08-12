@@ -22,14 +22,14 @@ pub fn change_icon(icon: TrayIcon) {
     let item = APP.get().unwrap().tray_handle();
     match icon {
         TrayIcon::Muted => {
-            // println!("set muted icon muted");
+            println!("set muted icon");
             item.set_icon(Icon::Raw(
                 include_bytes!("../../icons/unmuted.png").to_vec(),
             ))
             .unwrap();
         }
         TrayIcon::Unmuted => {
-            // println!("set icon.png icon muted");
+            println!("set unmuted icon");
             item.set_icon(Icon::Raw(include_bytes!("../../icons/icon.png").to_vec()))
                 .unwrap();
         }

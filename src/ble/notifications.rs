@@ -1,4 +1,4 @@
-use crate::ble::BluetoothMessage;
+use crate::app::BluetoothMessage;
 
 use btleplug::api::{CharPropFlags, Peripheral as PeripheralTrait, WriteType};
 use futures::stream::StreamExt;
@@ -14,7 +14,7 @@ const LED_STATUS_CHARACTERISTIC_UUID: Uuid =
 
 use uuid::Uuid;
 
-use super::Callback;
+use super::{OnConnectCallback, OnNotificationCallback};
 
 pub enum NotificationsManagerCommand {
     Stop,
@@ -24,11 +24,16 @@ pub(crate) struct NotificationsManager<T: PeripheralTrait + 'static> {
     peripheral: T,
     tx: Arc<Mutex<Sender<NotificationsManagerCommand>>>,
     rx: Arc<Mutex<Receiver<NotificationsManagerCommand>>>,
-    on_connect_callback: Callback,
+    on_connect_cb: OnConnectCallback,
+    on_notification_cb: OnNotificationCallback,
 }
 
 impl<T: PeripheralTrait> NotificationsManager<T> {
-    pub async fn new(peripheral: T, callback: Callback) -> Self {
+    pub async fn new(
+        peripheral: T,
+        on_connect_cb: OnConnectCallback,
+        on_notification_cb: OnNotificationCallback,
+    ) -> Self {
         let (tx, rx): (
             Sender<NotificationsManagerCommand>,
             Receiver<NotificationsManagerCommand>,
@@ -38,7 +43,8 @@ impl<T: PeripheralTrait> NotificationsManager<T> {
             peripheral,
             tx: Arc::new(Mutex::new(tx)),
             rx: Arc::new(Mutex::new(rx)),
-            on_connect_callback: callback,
+            on_connect_cb,
+            on_notification_cb,
         }
     }
 
@@ -56,9 +62,10 @@ impl<T: PeripheralTrait> NotificationsManager<T> {
                 self.peripheral.subscribe(&characteristic).await.unwrap();
                 let peripheral = self.peripheral.clone();
                 let rx: Arc<Mutex<Receiver<NotificationsManagerCommand>>> = self.rx.clone();
-                let on_connect_callback = self.on_connect_callback.clone();
+                let on_connect_cb = self.on_connect_cb.clone();
+                let on_notification_cb = self.on_notification_cb.clone();
                 let initial_data = peripheral.read(&characteristic).await.unwrap();
-                let msg = on_connect_callback.lock().unwrap()(&initial_data);
+                let msg = on_connect_cb.lock().unwrap()(&initial_data);
                 let characteristics = peripheral.characteristics();
                 let led_characteristic = characteristics
                     .iter()
@@ -74,6 +81,7 @@ impl<T: PeripheralTrait> NotificationsManager<T> {
 
                 tokio::spawn(async move {
                     let mut notification_stream = peripheral.notifications().await.unwrap();
+                    let on_notification_cb = on_notification_cb.clone();
                     select!(
                         _ = async {
                             loop {
@@ -83,10 +91,27 @@ impl<T: PeripheralTrait> NotificationsManager<T> {
                         }.fuse() => {},
                         _ = async {
                             while let Some(data) = notification_stream.next().await {
-                                let msg: BluetoothMessage = serde_json::from_slice(&data.value).unwrap();
-                                println!("Received bluetooth msg: {:?}", msg);
-
-
+                                let in_msg: BluetoothMessage = serde_json::from_slice(&data.value).unwrap();
+                                println!("Received bluetooth msg: {:?}", in_msg);
+                                let out_msg = on_notification_cb.lock().unwrap()(&data.value);
+                                if let Some(out_msg) = out_msg
+                                {
+                                    let characteristics = peripheral.characteristics();
+                                    let led_characteristic = characteristics
+                                        .iter()
+                                        .find(|c| {
+                                            c.uuid == LED_STATUS_CHARACTERISTIC_UUID
+                                                && c.properties.contains(CharPropFlags::WRITE)
+                                        })
+                                        .unwrap();
+                                    println!("Sending bluetooth msg: {msg:?}");
+                                    peripheral
+                                        .write(
+                                            led_characteristic,
+                                            &out_msg,
+                                            WriteType::WithoutResponse,
+                                        ).await.unwrap();
+                                }
                             }
                         }.fuse() => {},
                         _ = async {
@@ -107,21 +132,5 @@ impl<T: PeripheralTrait> NotificationsManager<T> {
     pub async fn stop(&self) {
         let tx = self.tx.lock().await;
         tx.send(NotificationsManagerCommand::Stop).await.unwrap();
-    }
-
-
-
-    fn mainloop(&self) {
-        // let mut last_press_count = init_mute_press_count;
-        // let mut last_position = init_position;
-        // // Process while the BLE connection is not broken or stopped.
-        // let microphone_status = sound_controller.get_microphone_status();
-
-        // while let Some(data) = notification_stream.next().await {
-        //     let msg: BluetoothMessage = serde_json::from_slice(&data.value).unwrap();
-
-        //     println!("Received bluetooth msg: {:?}", msg);
-
-        // }
     }
 }
